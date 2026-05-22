@@ -33,7 +33,7 @@ rootProject.name = "Keiyoushi"
 /**
  * Add or remove modules to load as needed for local development here.
  */
-loadAllIndividualExtensions()
+loadAllIndividualExtensions("en", "theblank")
 // loadIndividualExtension("all", "mangadex")
 
 /**
