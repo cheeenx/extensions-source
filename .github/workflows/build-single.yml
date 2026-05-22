@@ -1,0 +1,66 @@
+name: Build Extension APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      module:
+        description: 'Module path (e.g., src:en:theblank or src/en/theblank)'
+        required: true
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Normalize module path
+        id: normalize
+        run: |
+          # Accept both src:en:theblank and src/en/theblank
+          GRADLE_MODULE=$(echo "${{ github.event.inputs.module }}" | tr '/' ':')
+          DIR_PATH=$(echo "$GRADLE_MODULE" | tr ':' '/')
+          # Extract lang and name from src:lang:name
+          LANG=$(echo "$GRADLE_MODULE" | cut -d':' -f2)
+          NAME=$(echo "$GRADLE_MODULE" | cut -d':' -f3)
+          echo "gradle_module=$GRADLE_MODULE" >> $GITHUB_OUTPUT
+          echo "dir_path=$DIR_PATH" >> $GITHUB_OUTPUT
+          echo "lang=$LANG" >> $GITHUB_OUTPUT
+          echo "name=$NAME" >> $GITHUB_OUTPUT
+          echo "Gradle task: $GRADLE_MODULE:assembleDebug"
+          echo "APK dir:     $DIR_PATH"
+
+      - name: Load only the target extension
+        run: |
+          # Replace loadAllIndividualExtensions() with loadIndividualExtension("lang", "name")
+          sed -i 's/loadAllIndividualExtensions()/loadIndividualExtension("${{ steps.normalize.outputs.lang }}", "${{ steps.normalize.outputs.name }}")/' settings.gradle.kts
+          echo "--- settings.gradle.kts (first 10 lines) ---"
+          head -10 settings.gradle.kts
+
+      - name: Build APK
+        run: ./gradlew ${{ steps.normalize.outputs.gradle_module }}:assembleDebug
+
+      - name: Find APK
+        id: find_apk
+        run: |
+          APK_PATH=$(find "${{ steps.normalize.outputs.dir_path }}" -name "*.apk" | head -n 1)
+          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+          echo "Found APK: $APK_PATH"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.normalize.outputs.gradle_module }}-apk
+          path: ${{ steps.find_apk.outputs.apk_path }}
+          retention-days: 7
