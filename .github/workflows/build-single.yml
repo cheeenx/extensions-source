@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       module:
-        description: 'Module path (e.g., src/en/theblank)'
+        description: 'Module path (e.g., src:en:theblank)'
         required: true
         type: string
 
